@@ -1,0 +1,52 @@
+#!/bin/bash
+
+#The script scans a folder with mutiple smith-waterman alignment files. Each alignment file should contain an alignment of a single miRNA (with flanking regions) with a single target. 
+#The script works for alignment files where the miRNA-Guide sequence is in capital letters, while the flanking nucleotides are non-uppercase.
+#The script require the alignment to occupy a single continueous line. 
+
+for file in FOLDER_NAME/*.water
+do
+
+	### generates file with miR sequence (useful for pre miR nt counting) "$3" sends for 3rd object in that line which is the sequence
+	awk '/\|/ { print x }; { x=$3 }' $file > tempTest1.txt
+
+	### Generate a file with the reverse of the miR sequence(useful for post miR nt counting)
+	sed '/\n/!G;s/\(.\)\(.*\n\)/&\2\1/;//D;s/.//' tempTest1.txt > tempTest2.txt
+
+	### Generates file with alignment forward (for later testing six consecutive "||||||"). "\" come before | because it is quotation of spacial chars.
+	awk '/\|/' $file > tempTest3.txt
+
+	### Removes leading spaces from tempTest3.txt
+	sed 's/^[ \t]*//'  tempTest3.txt > tempTest4.txt
+
+	### Generates file with alignment reverse (for later testing six consecutive "||||||")
+	sed '/\n/!G;s/\(.\)\(.*\n\)/&\2\1/;//D;s/.//' tempTest4.txt > tempTest5.txt
+
+	### extracting first non-uppercase letters (only need it for length calculation)
+	awk -F"[A-Z]" '{print $1;}' tempTest1.txt > tempTest6.txt
+
+	### extracting last non-uppercase letters (only need it for length calculation)
+	awk -F"[A-Z]" '{print $1;}' tempTest2.txt > tempTest7.txt
+
+	### extracting length of first and last non-uppercase letters.
+	###This code counts the number of charecters in the first line of the file and saves it into a variable:
+	numPremir=$(awk '{ print length($1); }' tempTest6.txt)
+	numPostmir=$(awk '{ print length($1); }' tempTest7.txt)
+
+	###Now the next line will grab the first characters from the alignment tempoutput and save it to new files (one will represent the first and the other will represent the last)
+	head -c$numPremir tempTest4.txt > tempTest8.txt
+	head -c$numPostmir tempTest5.txt > tempTest9.txt
+
+	###Next line searches a the string "||||||". if it is present if will document it. -q prevents the found string from being printed
+	if [ grep -q '||||||' tempTest8.txt || grep -q '||||||' tempTest9.txt ]
+	then
+		echo "Match for:"
+		awk '/\|/ { print x }; { x=$1 }' $file
+		awk '/\|/ { getline; print $1 }' $file
+	fi >> FinalResult.txt
+
+	###Now all temp files are deleted. this command can be masked when not in a loop for troubleshooting
+	rm temp*
+done
+
+
